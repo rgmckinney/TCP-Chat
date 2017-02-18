@@ -23,7 +23,6 @@
  * TCP Chat Client
  */
 
-
 // This clients handle
 char* handle;
 
@@ -52,7 +51,12 @@ void getInput(int socket_num) {
 	 		}
 	 		else {
 		 		switch(inst[1]) {
-			 		case 'M':
+			 		case 'H':
+			 		case 'h':
+			 			// Help
+			 			printHelp();
+			 			break;
+					case 'M':
 			 		case 'm':
 				 		// Send message
 				 		sendMsg(socket_num, inst); 
@@ -114,7 +118,6 @@ void sendInitial(int socket_num) {
 
 	return;
 }
-
 
 void sendMsg(int socket_num, char inst[]) {
 	short packetLength = sizeof(c_header);
@@ -423,6 +426,14 @@ int setupClient(char *host_name, char *port) {
 	return socket_num;
 }
 
+void printHelp() {
+   printf(" Message one client:\n      %M destination-handle {message}\n");
+   printf(" Message multiple clients:\n      %M num-handles dest-handle-1 dest-handle-2 ... {message}\n");
+   printf(" Broadcast a message:\n     %B {message}\n");
+   printf("	List clients in chat\n		%L\n");
+   printf("	Exit:\n		%E");
+}
+
 int main(int argc, char * argv[]) {
 	handle = argv[1];
 	
@@ -434,6 +445,8 @@ int main(int argc, char * argv[]) {
 	// Set up the server
 	int socket_num = setupClient(argv[2], argv[3]);
 	sendInitial(socket_num);
+	
+	printf("Type %H for help\n");
 	
 	// Get user input
 	getInput(socket_num);
