@@ -429,8 +429,8 @@ int setupClient(char *host_name, char *port) {
 void printHelp() {
    printf("\n Message one client:\n      %%M destination-handle {message}\n");
    printf(" Message multiple clients:\n      %%M num-handles dest-handle-1 dest-handle-2 ... {message}\n");
-   printf(" Broadcast a message:\n		%%B {message}\n");
-   printf("	List clients in chat\n		%%L\n");
+   printf("Broadcast a message:\n	%%B {message}\n");
+   printf("List clients in chat\n	%%L\n");
    printf("	Exit:\n		%%E\n");
 }
 
