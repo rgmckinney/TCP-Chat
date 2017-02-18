@@ -20,4 +20,26 @@ typedef struct HandleNode {
 	struct HandleNode* next;
 } HandleNode;
 
-void printData(char *data, int len);
+void serve();
+
+void serveClient(int client_socket);
+
+void serveInit(char* packet, int inc_socket);
+
+void serveMsg(char* packet, int inc_socket);
+
+void serveBCast(char* packet, int inc_socket);
+
+void serveList(int inc_socket);
+
+void serveExit(int inc_socket);
+
+int setupServer(int port);
+
+void sendErrorPacket(int socket_num, char *handle, u_char handleLength);
+
+int isHandleOpen(char* handle);
+
+int getSocket(char* handle);
+
+void removeClient(int client_socket);

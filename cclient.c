@@ -27,36 +27,63 @@
 // This clients handle
 char* handle;
 
-void printData(char *data, int len) {
-	while (len--) {
-		printf("%x ", *data++);
-	}
-	printf("\n");
-}
+void getInput(int socket_num) {
+	char inst[MAXBUF];
+	fd_set fds;
 
-int getLengthInput(char* data) {
-	int length = 0;
+	do {
+		FD_ZERO(&fds);
+		FD_SET(socket_num, &fds);
+		FD_SET(STDIN_FILENO, &fds);
+		
+		printf("$: ");
+		fflush(stdout);
 
-	while (*data != '\n') {
-		data++;
-		length++;
-	}
+		if (select(socket_num+1, &fds, NULL, NULL, NULL) < 0) {
+			perror("select call");
+		}
 
-	return length;
-}
+ 		// Check for user instruction
+ 		if (FD_ISSET(STDIN_FILENO, &fds)) {
+	 		fgets(inst, MAXBUF, stdin);
 
-u_char getLength(char* data) {
-	if (data == NULL) {
-		return 0;
-	}
-	
-	u_char length = 0;
-	while (*data != '\0') {
-		data++;
-		length++;
-	}
+	 		if (inst[0] != '%') {
+		 		printf("Invalid command\n");
+	 		}
+	 		else {
+		 		switch(inst[1]) {
+			 		case 'M':
+			 		case 'm':
+				 		// Send message
+				 		sendMsg(socket_num, inst); 
+				 		break;
+			 		case 'B':
+			 		case 'b':
+				 		// Broadcast message
+				 		sendBCast(socket_num, inst);
+						break;
+			 		case 'L':
+			 		case 'l':
+				 		// List Handles
+				 		sendListReq(socket_num);
+						break;
+			 		case 'E':
+			 		case 'e':
+				 		// Exit
+				 		sendExit(socket_num);
+						break;
+			 		default:
+				 		printf("Invalid command\n");
+				 		break;
+		 		}
+	 		}
+		}
 
-	return length;
+		// Check for incoming packet
+		if (FD_ISSET(socket_num, &fds)) {
+			receivePacket(socket_num);
+		}
+	} while (1);
 }
 
 void sendInitial(int socket_num) {
@@ -88,99 +115,6 @@ void sendInitial(int socket_num) {
 	return;
 }
 
-void receiveList(int socket_num);
-
-void sendExit(int socket_num) {
-	char *packet = malloc(MAXBUF);
-
-	// Send exit packet to server
-	c_header *header = (c_header*)packet;
-	header->flag = F_EXIT;
-	header->length = sizeof(c_header);
-	send(socket_num, packet, MAXBUF, 0);
-
-	// Wait for ACK from server
-	recv(socket_num, packet, MAXBUF, MSG_WAITALL);
-	while (header->flag != F_ACK) {
-		recv(socket_num, packet, MAXBUF, MSG_WAITALL);
-	}
-
-	// Exit client
-	exit(0);
-}
-
-void sendListReq(int socket_num) {
-	// Send list request flag to server
-	c_header *header = malloc(sizeof(c_header));
-	header->flag = F_LIST;
-	header->length = sizeof(c_header);
-	send(socket_num, header, MAXBUF, 0);
-
-	receiveList(socket_num);
-}
-
-void sendBCast(int socket_num, char inst[]) {
-	strtok(inst, " ");
-	char *text = strtok(NULL, "\0");
-
-	char *packet = malloc(MAXBUF);
-	char *current = packet + sizeof(c_header);
-
-	// Construct header
-	c_header *header = (c_header*)packet;
-	header->flag = F_BCAST;
-
-	// Construct sender handle
-	u_char cLength = getLength(handle);
-	memcpy(current, &cLength, sizeof(u_char));
-	current += sizeof(u_char);
-	memcpy(current, handle, cLength);
-	current += cLength;
-	
-	header->length = sizeof(c_header) + sizeof(u_char) + cLength + getLength(text);
-	
-	memcpy(current, text, getLength(text));
-	send(socket_num, packet, MAXBUF, 0);
-}
-
-char* createMsgPacket(short length, char* destHandles[], u_char handleLens[], 
-	char* text, u_char numHandles) {
-	char* packet = malloc(MAXBUF);
-	char* current = packet;
-
-	// Construct packet header
-	c_header header;
-	header.flag = F_MSG;
-	header.length = length;
-	memcpy(current, &header, sizeof(c_header));
-	current += sizeof(c_header);
-
-	// Construct sender handle section
-	u_char cLength = getLength(handle);
-	memcpy(current, &cLength, sizeof(u_char));
-	current += sizeof(u_char);
-	memcpy(current, handle, cLength);
-	current += cLength;
-
-	memcpy(current, &numHandles, sizeof(u_char));
-	current += sizeof(u_char);
-
-	// Construct destination handle sections
-	int i;
-	for (i=0; i < numHandles; i++) {
-		u_char dLength = handleLens[i];
-		memcpy(current, &dLength, sizeof(u_char));
-		current += sizeof(u_char);
-	
-		memcpy(current, destHandles[i], dLength);
-		current += dLength;
-	}
-
-	// Construct text section
-	memcpy(current, text, getLength(text));
-
-	return packet;
-}
 
 void sendMsg(int socket_num, char inst[]) {
 	short packetLength = sizeof(c_header);
@@ -241,6 +175,98 @@ void sendMsg(int socket_num, char inst[]) {
 	char* packet = createMsgPacket(packetLength, destHandles, destHandleLens, 
 		text, numHandles);
 	send(socket_num, packet, MAXBUF, 0);
+}
+
+void sendBCast(int socket_num, char inst[]) {
+	strtok(inst, " ");
+	char *text = strtok(NULL, "\0");
+
+	char *packet = malloc(MAXBUF);
+	char *current = packet + sizeof(c_header);
+
+	// Construct header
+	c_header *header = (c_header*)packet;
+	header->flag = F_BCAST;
+
+	// Construct sender handle
+	u_char cLength = getLength(handle);
+	memcpy(current, &cLength, sizeof(u_char));
+	current += sizeof(u_char);
+	memcpy(current, handle, cLength);
+	current += cLength;
+	
+	header->length = sizeof(c_header) + sizeof(u_char) + cLength + getLength(text);
+	
+	memcpy(current, text, getLength(text));
+	send(socket_num, packet, MAXBUF, 0);
+}
+
+void sendExit(int socket_num) {
+	char *packet = malloc(MAXBUF);
+
+	// Send exit packet to server
+	c_header *header = (c_header*)packet;
+	header->flag = F_EXIT;
+	header->length = sizeof(c_header);
+	send(socket_num, packet, MAXBUF, 0);
+
+	// Wait for ACK from server
+	recv(socket_num, packet, MAXBUF, MSG_WAITALL);
+	while (header->flag != F_ACK) {
+		recv(socket_num, packet, MAXBUF, MSG_WAITALL);
+	}
+
+	// Exit client
+	exit(0);
+}
+
+void sendListReq(int socket_num) {
+	// Send list request flag to server
+	c_header *header = malloc(sizeof(c_header));
+	header->flag = F_LIST;
+	header->length = sizeof(c_header);
+	send(socket_num, header, MAXBUF, 0);
+
+	receiveList(socket_num);
+}
+
+char* createMsgPacket(short length, char* destHandles[], u_char handleLens[], 
+	char* text, u_char numHandles) {
+	char* packet = malloc(MAXBUF);
+	char* current = packet;
+
+	// Construct packet header
+	c_header header;
+	header.flag = F_MSG;
+	header.length = length;
+	memcpy(current, &header, sizeof(c_header));
+	current += sizeof(c_header);
+
+	// Construct sender handle section
+	u_char cLength = getLength(handle);
+	memcpy(current, &cLength, sizeof(u_char));
+	current += sizeof(u_char);
+	memcpy(current, handle, cLength);
+	current += cLength;
+
+	memcpy(current, &numHandles, sizeof(u_char));
+	current += sizeof(u_char);
+
+	// Construct destination handle sections
+	int i;
+	for (i=0; i < numHandles; i++) {
+		u_char dLength = handleLens[i];
+		memcpy(current, &dLength, sizeof(u_char));
+		current += sizeof(u_char);
+	
+		memcpy(current, destHandles[i], dLength);
+		current += dLength;
+	}
+
+	// Construct text section
+	memcpy(current, text, getLength(text));
+
+	return packet;
 }
 
 void receiveList(int socket_num) {
@@ -338,67 +364,32 @@ void receivePacket(int inc_socket) {
 	}
 }
 
-void getInput(int socket_num) {
-	char inst[MAXBUF];
-	fd_set fds;
+int getLengthInput(char* data) {
+	int length = 0;
 
-	do {
-		FD_ZERO(&fds);
-		FD_SET(socket_num, &fds);
-		FD_SET(STDIN_FILENO, &fds);
-		
-		printf("$: ");
-		fflush(stdout);
+	while (*data != '\n') {
+		data++;
+		length++;
+	}
 
-		if (select(socket_num+1, &fds, NULL, NULL, NULL) < 0) {
-			perror("select call");
-		}
-
- 		// Check for user instruction
- 		if (FD_ISSET(STDIN_FILENO, &fds)) {
-	 		fgets(inst, MAXBUF, stdin);
-
-	 		if (inst[0] != '%') {
-		 		printf("Invalid command\n");
-	 		}
-	 		else {
-		 		switch(inst[1]) {
-			 		case 'M':
-			 		case 'm':
-				 		// Send message
-				 		sendMsg(socket_num, inst); 
-				 		break;
-			 		case 'B':
-			 		case 'b':
-				 		// Broadcast message
-				 		sendBCast(socket_num, inst);
-						break;
-			 		case 'L':
-			 		case 'l':
-				 		// List Handles
-				 		sendListReq(socket_num);
-						break;
-			 		case 'E':
-			 		case 'e':
-				 		// Exit
-				 		sendExit(socket_num);
-						break;
-			 		default:
-				 		printf("Invalid command\n");
-				 		break;
-		 		}
-	 		}
-		}
-
-		// Check for incoming packet
-		if (FD_ISSET(socket_num, &fds)) {
-			receivePacket(socket_num);
-		}
-	} while (1);
+	return length;
 }
 
-int setupClient(char *host_name, char *port)
-{
+u_char getLength(char* data) {
+	if (data == NULL) {
+		return 0;
+	}
+	
+	u_char length = 0;
+	while (*data != '\0') {
+		data++;
+		length++;
+	}
+
+	return length;
+}
+
+int setupClient(char *host_name, char *port) {
 	int socket_num;
 	struct sockaddr_in remote;       // socket address for remote side
 	struct hostent *hp;        
@@ -432,8 +423,7 @@ int setupClient(char *host_name, char *port)
 	return socket_num;
 }
 
-int main(int argc, char * argv[])
-{
+int main(int argc, char * argv[]) {
 	handle = argv[1];
 	
 	if (argc != 4) {

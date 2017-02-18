@@ -1,12 +1,5 @@
-# Makefile for CPE464 
-
 CC= gcc
 CFLAGS= -g
-
-# The  -lsocket -lnsl are sometimes needed for the sockets.
-# The -L/usr/ucblib -lucb gives location for the Berkeley library needed for
-# the bcopy, bzero, and bcmp.  The -R/usr/ucblib tells where to load
-# the runtime library.
 
 LIBS =
 
