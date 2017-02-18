@@ -32,4 +32,6 @@ int getLengthInput(char* data);
 
 u_char getLength(char* data);
 
+void printData();
+
 int setupClient(char *host_name, char *port);

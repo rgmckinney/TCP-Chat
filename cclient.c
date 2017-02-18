@@ -427,11 +427,11 @@ int setupClient(char *host_name, char *port) {
 }
 
 void printHelp() {
-   printf(" Message one client:\n      %M destination-handle {message}\n");
-   printf(" Message multiple clients:\n      %M num-handles dest-handle-1 dest-handle-2 ... {message}\n");
-   printf(" Broadcast a message:\n     %B {message}\n");
-   printf("	List clients in chat\n		%L\n");
-   printf("	Exit:\n		%E");
+   printf("\n Message one client:\n      %%M destination-handle {message}\n");
+   printf(" Message multiple clients:\n      %%M num-handles dest-handle-1 dest-handle-2 ... {message}\n");
+   printf(" Broadcast a message:\n     %%B {message}\n");
+   printf("	List clients in chat\n		%%L\n");
+   printf("	Exit:\n		%%E");
 }
 
 int main(int argc, char * argv[]) {
@@ -446,7 +446,7 @@ int main(int argc, char * argv[]) {
 	int socket_num = setupClient(argv[2], argv[3]);
 	sendInitial(socket_num);
 	
-	printf("Type %H for help\n");
+	printf("Type %%H for help\n");
 	
 	// Get user input
 	getInput(socket_num);
